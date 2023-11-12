@@ -1,10 +1,13 @@
+import json
 import openai
 import os
 import requests
 import urllib.request
+import uuid
 import time
 
 from dotenv import load_dotenv
+from qdrant_client import QdrantClient, models
 from urllib.error import HTTPError
 
 
@@ -122,3 +125,74 @@ def download_txt_from_url(url):
             time.sleep(x*x)
     print("Could not connect with {}".format(url))
     return None
+
+
+def download_json_from_url(url):
+    req = urllib.request.Request(
+        url,
+        data=None,
+        headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        }
+    )
+    try:
+        response = urllib.request.urlopen(req)
+        print("SUCCESS, status={}".format(response.status))
+        # url_data = response.read().decode('utf-8')
+        url_data = json.load(response)
+        return url_data
+    except HTTPError as e:
+        print("UNSUCCESS, status={}".format(e.status))
+    return None
+
+
+### QDRANT
+class QdrantMetadataClass:
+
+    def __init__(self, collection_name, content) -> None:
+        super().__init__()
+        self.source = collection_name
+        self.content = content
+        self.uuid = uuid.uuid4().hex
+
+
+class QdrantDataClass:
+
+    def __init__(self, collection_name, content) -> None:
+        super().__init__()
+        self.metadata = QdrantMetadataClass(collection_name=collection_name, content=content)
+        self.id = self.metadata.uuid
+        self.payload = vars(self.metadata)
+        self.vector = openai_embedding(content['info'])
+
+
+def qdrant_client():
+    client = QdrantClient("localhost", port=6333)
+    return client
+
+
+def qdrant_create_collection(name, client):
+    client.create_collection(
+        collection_name=name,
+        vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
+        optimizers_config=models.OptimizersConfigDiff(memmap_threshold=20000),
+        hnsw_config=models.HnswConfigDiff(on_disk=True),
+    )
+
+
+def qdrant_search(client, collection_name, query_embedding):
+    return client.search(
+        collection_name=collection_name,
+        query_vector=query_embedding,
+        limit=1,
+        query_filter=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="source",
+                    match=models.MatchValue(
+                        value=collection_name,
+                    ),
+                )
+            ]
+        ),
+    )
