@@ -1,6 +1,7 @@
 from base import  download_json_from_url, qdrant_client, QdrantDataClass, qdrant_create_collection
 from qdrant_client.http.models import Batch
 
+
 collection_name = "C03L04"
 qdrant = qdrant_client()
 qdrant_create_collection(collection_name, qdrant)
