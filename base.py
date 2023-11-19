@@ -196,3 +196,16 @@ def qdrant_search(client, collection_name, query_embedding):
             ]
         ),
     )
+
+
+### External APIs
+def currency_nbp(currency):
+    url_api = "https://api.nbp.pl/api/exchangerates/rates/a/{}/"
+    response = requests.get(url_api.format(str(currency))).json()
+    return response
+
+
+def country_details(country):
+    url_api = "https://restcountries.com/v3.1/name/{}?fullText=true"
+    response = requests.get(url_api.format(str(country))).json()
+    return response
